@@ -16,6 +16,14 @@ pub enum Color {
     White,
     Black,
 }
+impl Color {
+    pub fn direction(&self) -> i32 {
+        match self {
+            Self::White => 1,
+            Self::Black => -1,
+        }
+    }
+}
 impl Not for Color {
     type Output = Self;
     fn not(self) -> Self::Output {
@@ -37,22 +45,32 @@ pub enum Piece {
 }
 
 impl Piece {
+    fn color(&self) -> Color {
+        use Color::*;
+        use Piece::*;
+        match *self {
+            King(White) | Queen(White) | Rook(White) | Bishop(White) | Knight(White)
+            | Pawn(White) => White,
+            _ => Black,
+        }
+    }
+
     pub fn symbol(&self) -> char {
         use Color::*;
         use Piece::*;
         match *self {
-            King(White) => '♔',
-            King(Black) => '♚',
-            Queen(White) => '♕',
-            Queen(Black) => '♛',
-            Rook(White) => '♖',
-            Rook(Black) => '♜',
-            Bishop(White) => '♗',
-            Bishop(Black) => '♝',
-            Knight(White) => '♘',
-            Knight(Black) => '♞',
-            Pawn(White) => '♙',
-            Pawn(Black) => '♟',
+            King(White) => '♚',
+            King(Black) => '♔',
+            Queen(White) => '♛',
+            Queen(Black) => '♕',
+            Rook(White) => '♜',
+            Rook(Black) => '♖',
+            Bishop(White) => '♝',
+            Bishop(Black) => '♗',
+            Knight(White) => '♞',
+            Knight(Black) => '♘',
+            Pawn(White) => '♟',
+            Pawn(Black) => '♙',
         }
     }
 
@@ -63,7 +81,7 @@ impl Piece {
         use Piece::*;
         let mut valid_positions = HashSet::new();
 
-        match *self {
+        match self {
             King(_) => {
                 for f in -1..=1 {
                     for r in -1..=1 {
@@ -74,13 +92,60 @@ impl Piece {
                     }
                 }
             }
-            Queen(_) => todo!(),
-            Rook(_) => todo!(),
-            Bishop(_) => todo!(),
-            Knight(_) => todo!(),
-            Pawn(_) => {
-                if pos.rank == 1 {
-                    let new_pos = pos.relative_pos(1, 0);
+            Queen(_) => {
+                // White as arbitrary color (neither are dependent on color)
+                valid_positions.extend(Rook(Color::White).valid_destinations(pos));
+                valid_positions.extend(Bishop(Color::White).valid_destinations(pos));
+            }
+            Rook(_) => {
+                for file_offset in 1..=8 {
+                    let new_pos = pos.relative_pos(file_offset, 0);
+                    if let Some(x) = new_pos {
+                        valid_positions.insert(x);
+                    }
+                }
+                for rank_offset in 1..=8 {
+                    let new_pos = pos.relative_pos(0, rank_offset);
+                    if let Some(x) = new_pos {
+                        valid_positions.insert(x);
+                    }
+                }
+            }
+            Bishop(_) => {
+                let directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)];
+                for (file_dir, rank_dir) in directions {
+                    for diag in 1..=8 {
+                        let new_pos = pos.relative_pos(diag * file_dir, diag * rank_dir);
+                        if let Some(x) = new_pos {
+                            valid_positions.insert(x);
+                        }
+                    }
+                }
+            }
+            Knight(_) => {
+                // (file, rank)
+                let offsets = [
+                    (2, 1),
+                    (2, -1),
+                    (-2, 1),
+                    (-2, -1),
+                    (1, 2),
+                    (1, -2),
+                    (-1, 2),
+                    (-1, -2),
+                ];
+                for (file_offset, rank_offset) in offsets {
+                    let new_pos = pos.relative_pos(file_offset, rank_offset);
+                    if let Some(x) = new_pos {
+                        valid_positions.insert(x);
+                    }
+                }
+            }
+            Pawn(color) => {
+                let direction = color.direction();
+                let steps = if pos.rank == 2 || pos.rank == 7 { 2 } else { 1 };
+                for i in 1..=steps {
+                    let new_pos = pos.relative_pos(0, i * direction);
                     if let Some(x) = new_pos {
                         valid_positions.insert(x);
                     }
@@ -89,16 +154,6 @@ impl Piece {
         };
         valid_positions.remove(&pos);
         valid_positions
-    }
-
-    fn color(&self) -> Color {
-        use Color::*;
-        use Piece::*;
-        match *self {
-            King(White) | Queen(White) | Rook(White) | Bishop(White) | Knight(White)
-            | Pawn(White) => White,
-            _ => Black,
-        }
     }
 }
 
@@ -229,8 +284,9 @@ impl Game {
         }
     }
 
-    /// Get possible moves from provided Position
+    /// Get possible moves for provided Position
     fn _get_possible_moves(&self, position: Position) -> Option<HashSet<Position>> {
+        // TODO: Check for check and if peices are in the way
         if let Some(piece) = self.board.get(&position) {
             let mut destinations = piece.valid_destinations(position);
             // Filter out moves that land on own piece
@@ -249,6 +305,9 @@ impl Game {
 
     /// If a piece is standing on the given tile, return all possible
     /// new positions of that piece. Don't forget to the rules for check.
+    ///
+    /// Returns None if invalid position or no piece there
+    /// Returns empty Vec if no moves are available for piece
     ///
     /// (optional) Don't forget to include en passent and castling.
     pub fn get_possible_moves(&self, _position: String) -> Option<Vec<String>> {
@@ -288,7 +347,7 @@ impl fmt::Debug for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut output = String::new();
         output.push_str("  a b c d e f g h\n");
-        for rank in 1..=8 {
+        for rank in (1..=8).rev() {
             for file in 1..=8 {
                 if file == 1 {
                     output.push(char::from_digit(rank as u32, 10).unwrap_or(' '));

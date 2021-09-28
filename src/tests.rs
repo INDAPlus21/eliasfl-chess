@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use std::iter::FromIterator;
+
     use crate::*;
 
     /// Check that game state is in progress after initialisation
@@ -77,8 +79,29 @@ mod tests {
     fn possible_moves() {
         let game = Game::new();
         assert_eq!(game.get_possible_moves("e1".to_string()), Some(vec![]));
-        println!("\n{:?}", game.get_possible_moves("e2".to_string()));
+        // Test c2 white pawn
+        assert_eq!(
+            game._get_possible_moves(Position { file: 3, rank: 2 })
+                .unwrap(),
+            HashSet::from_iter(
+                [Position { file: 3, rank: 4 }, Position { file: 3, rank: 3 }]
+                    .iter()
+                    .cloned()
+            )
+        );
+        // Test f7 black pawn
+        assert_eq!(
+            game._get_possible_moves(Position { file: 6, rank: 7 })
+                .unwrap(),
+            HashSet::from_iter(
+                [Position { file: 6, rank: 6 }, Position { file: 6, rank: 5 }]
+                    .iter()
+                    .cloned()
+            )
+        );
+        // println!("\n{:?}", game.get_possible_moves("c7".to_string()));
 
+        // Test empty square
         assert!(game.get_possible_moves("c5".to_string()).is_none());
     }
 
