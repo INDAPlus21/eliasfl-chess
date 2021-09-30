@@ -1,3 +1,50 @@
+//! # Chess engine by Elias Floreteng
+//! A dependency-free chess engine/library and cli test made by Elias Floreteng during the KTH DD1337 Programming course
+//!
+//! # How to run the program
+//! 1. Download and run the binary (for x86 systems):  
+//!     [Windows](https://elias.floreteng.se/chess/bin/eliasfl-chess.exe)  
+//!     [Linux](https://elias.floreteng.se/chess/bin/eliasfl-chess)
+//!
+//! You can alternatively install it on your system with `cargo install eliasfl-chess`
+//!
+//! # How to use/test the library
+//! 1. Clone [the repository](https://github.com/INDAPlus21/eliasfl-chess)
+//! 2. To run the program: `cargo run`
+//! 3. (Optional) To run tests: `cargo test`
+//! 3. (Optional) View documentation locally: `cargo doc --open`
+//!
+//! # Library usage
+//! Parameters to public functions are of type String and consists of a file (a-h) and rank (1-8) eg. "e2" or "d7"  
+//! The functionality of the library is encapsulated in the [`Game`] struct:  
+//! - [`Game::new`] is used to create a new game with the standard piece arrangement
+//! - [`Game::get_possible_moves`] returns the possible moves for a certain square
+//! - [`Game::make_move`] moves a piece to a destination
+//! - [`Game::set_promotion`] sets the piece to turn pawns into during promotion, applies for current player
+//! - [`Game::get_game_state`] returns the current state of the game
+//!
+//! # Examples
+//! ```
+//! use eliasfl_chess::Game;
+//!
+//! fn main() {
+//!     let mut game = Game::new();
+//!     println!("{:?}", game.get_possible_moves("e2".to_string()));
+//!     game.make_move("e2".to_string(), "e3".to_string());
+//!     println!("{:?}", game.get_possible_moves("d1".to_string()));
+//!     println!("{:?}", game);
+//! }
+//! ```
+//!
+//! ### Implementation notes:
+//! - Getting moves during the opposite player's turn ignores if move checks their king.
+//! - En passant is not possible.
+//! - Castling is not possible.
+//!
+// How to publish https://doc.rust-lang.org/book/ch14-02-publishing-to-crates-io.html
+// How to install as binary https://doc.rust-lang.org/book/ch14-04-installing-binaries.html
+
+use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
@@ -8,7 +55,7 @@ mod tests;
 pub enum GameState {
     InProgress,
     Check,
-    GameOver,
+    CheckMate,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -77,7 +124,7 @@ impl Piece {
     /// Get valid destinations for a piece in a certain position.
     ///
     /// This function returns all possible destinations on the board, regardless of what is located in that position.
-    pub fn valid_destinations(&self, pos: Position) -> HashSet<Position> {
+    pub fn valid_destinations(&self, pos: &Position) -> HashSet<Position> {
         use Piece::*;
         let mut valid_positions = HashSet::new();
 
@@ -98,13 +145,13 @@ impl Piece {
                 valid_positions.extend(Bishop(Color::White).valid_destinations(pos));
             }
             Rook(_) => {
-                for file_offset in 1..=8 {
+                for file_offset in -8..=8 {
                     let new_pos = pos.relative_pos(file_offset, 0);
                     if let Some(x) = new_pos {
                         valid_positions.insert(x);
                     }
                 }
-                for rank_offset in 1..=8 {
+                for rank_offset in -8..=8 {
                     let new_pos = pos.relative_pos(0, rank_offset);
                     if let Some(x) = new_pos {
                         valid_positions.insert(x);
@@ -143,9 +190,15 @@ impl Piece {
             }
             Pawn(color) => {
                 let direction = color.direction();
-                let steps = if pos.rank == 2 || pos.rank == 7 { 2 } else { 1 };
+                let steps = if matches!(pos.rank, 2 | 7) { 2 } else { 1 };
                 for i in 1..=steps {
                     let new_pos = pos.relative_pos(0, i * direction);
+                    if let Some(x) = new_pos {
+                        valid_positions.insert(x);
+                    }
+                }
+                for file_offset in [-1, 1] {
+                    let new_pos = pos.relative_pos(file_offset, direction);
                     if let Some(x) = new_pos {
                         valid_positions.insert(x);
                     }
@@ -167,6 +220,9 @@ pub struct Position {
 impl Position {
     /// Get Position from string with first character as file (a-h) and second char as rank (1-8).
     pub fn from_string(_from: String) -> Result<Position, Box<dyn Error>> {
+        if _from.chars().count() < 2 {
+            return Err("Position should consist of file and rank (at least 2 characters)".into());
+        }
         let (_file, _rank) = _from.split_at(1);
         let file = match &_file.to_lowercase()[..] {
             "a" => 1,
@@ -224,13 +280,16 @@ impl Position {
     }
 }
 
+#[derive(Clone, PartialEq)]
 pub struct Game {
     /// Board HashMap with Position keys and Piece values
     pub board: HashMap<Position, Piece>,
-    /// Current game state.
-    pub state: GameState,
     /// The color who's turn it is
     pub active_color: Color,
+    /// Promotion piece per color
+    pub promotion: [Piece; 2],
+    /// Current game state.
+    state: GameState,
 }
 
 impl Game {
@@ -281,22 +340,101 @@ impl Game {
             board: starting_board,
             state: GameState::InProgress,
             active_color: Color::White,
+            promotion: [Piece::Queen(Color::White), Piece::Queen(Color::Black)],
         }
     }
 
+    /// Detects if there is a piece in the way for a move
+    fn _is_piece_in_way(&self, piece: &Piece, position: &Position, destination: &Position) -> bool {
+        match piece {
+            // Knight and king can move over pieces (king can't move over because he can only move 1)
+            Piece::Knight(_) | Piece::King(_) => {}
+            Piece::Queen(c) => {
+                return self._is_piece_in_way(&Piece::Bishop(*c), position, destination)
+                    || self._is_piece_in_way(&Piece::Rook(*c), position, destination);
+            }
+            Piece::Bishop(_) => {
+                let file = destination.file as i32 - position.file as i32;
+                let rank = destination.rank as i32 - position.rank as i32;
+                for offset in 1..max(file.abs(), rank.abs()) {
+                    // Iterate over positions between position and destination (offset is equal with different sign because bishop)
+                    if let Some(between_pos) =
+                        position.relative_pos(offset * file.signum(), offset * rank.signum())
+                    {
+                        if let Some(_) = self.board.get(&between_pos) {
+                            // If any of the pieces between are occupied
+                            return true;
+                        }
+                    }
+                }
+            }
+            Piece::Rook(_) | Piece::Pawn(_) => {
+                if position.file == destination.file {
+                    // If in same file: iterate over locations inbetween
+                    // + 1 to ignore current piece and noninclusive range
+                    for between in min(position.rank, destination.rank) + 1
+                        ..max(position.rank, destination.rank)
+                    {
+                        let between_pos = Position {
+                            rank: between,
+                            file: position.file,
+                        };
+                        if let Some(_) = self.board.get(&between_pos) {
+                            // If any of the pieces between are occupied
+                            return true;
+                        }
+                    }
+                }
+                if position.rank == destination.rank {
+                    // If in same rank: iterate over locations inbetween
+                    // + 1 to ignore current piece and noninclusive range
+                    for between in min(position.file, destination.file) + 1
+                        ..max(position.file, destination.file)
+                    {
+                        let between_pos = Position {
+                            rank: position.rank,
+                            file: between,
+                        };
+                        if let Some(_) = self.board.get(&between_pos) {
+                            // If any of the pieces between are occupied
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
     /// Get possible moves for provided Position
-    fn _get_possible_moves(&self, position: Position) -> Option<HashSet<Position>> {
-        // TODO: Check for check and if peices are in the way
+    ///
+    /// Includes destinations that expose king
+    ///
+    /// None if invalid position or no piece, empty set if no possible moves
+    fn _get_possible_moves(&self, position: &Position) -> Option<HashSet<Position>> {
         if let Some(piece) = self.board.get(&position) {
             let mut destinations = piece.valid_destinations(position);
-            // Filter out moves that land on own piece
+            // Filter out moves that land on own piece or has piece in way
             destinations.retain(|destination| {
-                if let Some(piece) = self.board.get(&destination) {
-                    self.active_color != piece.color()
+                // Keep if destination is opposite color and no pieces are in the way of move
+                if let Some(p) = self.board.get(&destination) {
+                    // If pawn and dest is occupied -> deny straight move/capture
+                    if matches!(piece, Piece::Pawn(_)) && position.file == destination.file {
+                        return false;
+                    }
+                    p.color() != piece.color()
+                        && !self._is_piece_in_way(piece, position, destination)
                 } else {
-                    true
+                    // If pawn and dest is empty -> deny diagonal capture
+                    if matches!(piece, Piece::Pawn(_)) {
+                        position.file == destination.file
+                            && !self._is_piece_in_way(piece, position, destination)
+                    } else {
+                        !self._is_piece_in_way(piece, position, destination) // Destination has no piece
+                    }
                 }
             });
+
             Some(destinations)
         } else {
             None
@@ -304,49 +442,206 @@ impl Game {
     }
 
     /// If a piece is standing on the given tile, return all possible
-    /// new positions of that piece. Don't forget to the rules for check.
+    /// new positions of that piece.
+    ///
+    /// Does not include destinations that expose king
     ///
     /// Returns None if invalid position or no piece there
-    /// Returns empty Vec if no moves are available for piece
     ///
-    /// (optional) Don't forget to include en passent and castling.
+    /// Returns empty Vec if no moves are available for piece
     pub fn get_possible_moves(&self, _position: String) -> Option<Vec<String>> {
         if let Ok(position) = Position::from_string(_position) {
-            if let Some(moves) = self._get_possible_moves(position) {
-                Some(moves.iter().map(|_p| _p.to_string()).collect())
+            if let Some(mut moves) = self._get_possible_moves(&position) {
+                // Cannot move to/capture king -> filter king destinations
+                moves.retain(|_p| !matches!(self.board.get(_p), Some(Piece::King(_))));
+                // Filter out moves that threaten own king
+                moves.retain(|_p| self._ok_to_make_move(&position, _p));
+                let mut move_vec: Vec<String> = moves.iter().map(|_p| _p.to_string()).collect();
+                move_vec.sort_unstable();
+                Some(move_vec)
             } else {
-                None
+                None // No piece there
             }
         } else {
-            None
+            None // Invalid position
         }
     }
 
-    /// If the current game state is InProgress and the move is legal,
-    /// move a piece and return the resulting state of the game.
-    pub fn make_move(&mut self, _from: String, _to: String) -> Option<GameState> {
-        if let Some(possible_moves) = self.get_possible_moves(_from) {
-            if possible_moves.contains(&_to) {
-                self.active_color = !self.active_color;
-                Some(self.state)
+    /// If ok to make move
+    ///
+    /// Returns false if own king is threatened by move or if move cannot be made
+    fn _ok_to_make_move(&self, from: &Position, to: &Position) -> bool {
+        // If getting moves for opposite player -> assume king cannot be threatened
+        // Unwrap _should_ never panic
+        if self.active_color != self.board.get(from).unwrap().color() {
+            return true;
+        }
+        let mut new_game = self.clone();
+        new_game.make_move(from.to_string(), to.to_string()).is_ok()
+    }
+
+    /// If the current game state is not CheckMate and the move is legal,
+    /// move a piece.
+    ///
+    /// Return Err if move is illegal or if piece has no possible moves, otherwise Ok.
+    pub fn make_move(&mut self, _from: String, _to: String) -> Result<(), &str> {
+        if let (Ok(from), Ok(to)) = (
+            Position::from_string(_from.clone()),
+            Position::from_string(_to.clone()),
+        ) {
+            if let Some(piece) = self.board.get(&from) {
+                if piece.color() != self.active_color {
+                    return Err("Trying to move opponents piece");
+                }
+
+                if let Some(possible_moves) =
+                    self._get_possible_moves(&Position::from_string(_from).unwrap())
+                {
+                    if let Some(_) = possible_moves.get(&to) {
+                        // Cannot move to/capture king
+                        if matches!(self.board.get(&to), Some(Piece::King(_))) {
+                            return Err("Cannot capture king");
+                        }
+                        // Capture piece (or move to square if empty)
+                        let new_piece =
+                            if matches!(to.rank, 1 | 8) && matches!(piece, Piece::Pawn(_)) {
+                                // Set new piece to promotion piece if pawn and dest rank is 1 or 8
+                                if let Some(prom_piece) = self
+                                    .promotion
+                                    .iter()
+                                    .find(|p| p.color() == self.active_color)
+                                {
+                                    *prom_piece
+                                } else {
+                                    // Promotion piece not found for current player -> use queen
+                                    Piece::Queen(self.active_color)
+                                }
+                            } else {
+                                piece.clone() // Not pawn -> clone old piece to new location
+                            };
+                        // Actual piece move
+                        let before_move = self.board.clone();
+                        self.board.insert(to, new_piece); // returns removed piece
+                        self.board.remove(&from);
+                        if self._king_is_threatened(self.active_color) {
+                            // Own king is threatened -> invalid move
+                            self.board = before_move;
+                            return Err("Move threatenes own king");
+                        }
+                        // If piece is able to move and doesn't threaten own king -> remove check state
+                        self.state = GameState::InProgress;
+
+                        // If oppoiste king is threatened after move -> check other player
+                        if self._king_is_threatened(!self.active_color) {
+                            self.state = GameState::Check;
+                        }
+
+                        // Change to opposite players turn
+                        self.active_color = !self.active_color;
+
+                        Ok(())
+                    } else {
+                        Err("Destination move is invalid")
+                    }
+                } else {
+                    Err("No possible moves")
+                }
             } else {
-                None
+                Err("No piece in position(s)")
             }
         } else {
-            None
+            Err("Invalid position(s)")
         }
     }
 
-    /// Set the piece type that a peasant becames following a promotion.
-    pub fn set_promotion(&mut self, _piece: String) -> () {
-        ()
+    /// Returns true if king with `color` is threateneed by piece in `position`
+    fn _threatens_king(&self, position: &Position, color: Color) -> bool {
+        if let Some(moves) = self._get_possible_moves(position) {
+            for mov in moves {
+                if let Some(p) = self.board.get(&mov) {
+                    match p {
+                        Piece::King(_c) if *_c == color => {
+                            return true;
+                        }
+                        _ => continue,
+                    }
+                }
+            }
+            false // No piece threatens king
+        } else {
+            false // No piece in position
+        }
+    }
+
+    /// Returns if king with provided color is threatened by opposite color
+    ///
+    /// Iterates over all pieces to find if any of them threatens king with `color`
+    fn _king_is_threatened(&self, color: Color) -> bool {
+        for (position, piece) in self.board.iter() {
+            if piece.color() != color && self._threatens_king(position, color) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Returns if there is a checkmate for the provided color
+    ///
+    /// Iterates over all moves for `color`'s pieces and if no moves can be made, the game is check mate
+    fn _is_checkmate(&self, color: Color) -> bool {
+        for (position, _) in self.board.iter().filter(|(_, &p)| p.color() == color) {
+            if let Some(moves) = self.get_possible_moves(position.to_string()) {
+                if moves.len() > 0 {
+                    return false;
+                }
+            } // Invalid position or no piece, should not be reached
+        }
+        true
+    }
+
+    /// Set promotion piece for the current player.
+    ///
+    /// String must be "queen", "rook", "bishop" or "knight". Otherwise error is returned
+    pub fn set_promotion(&mut self, _piece: String) -> Result<(), &str> {
+        let color = self.active_color;
+        for prom_piece in self.promotion.iter_mut() {
+            if prom_piece.color() == color {
+                *prom_piece = match &_piece.to_lowercase()[..] {
+                    "queen" => Piece::Queen(color),
+                    "rook" => Piece::Rook(color),
+                    "bishop" => Piece::Bishop(color),
+                    "knight" => Piece::Knight(color),
+                    _ => return Err("Invalid promotion piece"),
+                };
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Gets the current game state
+    ///
+    /// Detects and returns checkmate (private field game.state does not)
+    pub fn get_game_state(&self) -> GameState {
+        if self._is_checkmate(self.active_color) {
+            return GameState::CheckMate;
+        }
+        return self.state;
     }
 }
 
 impl fmt::Debug for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut output = String::new();
-        output.push_str("  a b c d e f g h\n");
+        output.push_str(
+            &format!(
+                "{} a b c d e f g h\n",
+                match self.active_color {
+                    Color::White => "W", // ⚑
+                    Color::Black => "B", // ⚐
+                }
+            )[..],
+        );
         for rank in (1..=8).rev() {
             for file in 1..=8 {
                 if file == 1 {

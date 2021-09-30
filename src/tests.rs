@@ -1,18 +1,20 @@
+//! To run tests in order and print output: `cargo test -- --nocapture --test-threads=1`
+
 #[cfg(test)]
 mod tests {
     use std::iter::FromIterator;
 
     use crate::*;
 
-    /// Check that game state is in progress after initialisation
+    /// Test that game state is in progress after initialisation
     #[test]
     fn game_in_progress_after_init() {
         let game = Game::new();
 
-        assert_eq!(game.state, GameState::InProgress);
+        assert_eq!(game.get_game_state(), GameState::InProgress);
     }
 
-    /// Check starting board
+    /// Test starting board
     #[test]
     fn valid_starting_board() {
         use Color::*;
@@ -63,7 +65,7 @@ mod tests {
         assert_eq!(game.board, starting_board);
     }
 
-    /// Check that a valid position can be made from a string
+    /// Test that a valid position can be made from a string
     #[test]
     fn position_from_string() {
         let position1 = Position::from_string("d2".to_string());
@@ -74,14 +76,50 @@ mod tests {
         assert!(!position2.is_ok());
     }
 
-    /// Check for possible moves on a piece
+    /// Test setting a promotion piece
+    #[test]
+    fn set_promotion_piece() {
+        let mut game = Game::new();
+        game.set_promotion("Knight".to_string()).unwrap();
+        assert!(game.promotion.contains(&Piece::Knight(Color::White)));
+        game.active_color = Color::Black;
+        game.set_promotion("Rook".to_string()).unwrap();
+        assert!(game.promotion.contains(&Piece::Rook(Color::Black)));
+    }
+
+    /// Test pawn promotion (and pawn diagonal capture)
+    #[test]
+    fn promotion() {
+        let mut game = Game::new();
+        game.set_promotion("knight".to_string()).unwrap();
+        let moves = [
+            ("a2", "a4"),
+            ("b7", "b5"),
+            ("a4", "b5"),
+            ("b8", "a6"),
+            ("b5", "b6"),
+            ("a6", "b4"),
+            ("b6", "b7"),
+            ("b4", "d5"),
+            ("b7", "b8"),
+        ];
+        for (from, to) in moves {
+            game.make_move(from.to_string(), to.to_string()).unwrap();
+        }
+        assert_eq!(
+            game.board.get(&Position { file: 2, rank: 8 }),
+            Some(&Piece::Knight(Color::White))
+        );
+    }
+
+    /// Test for possible moves on a piece
     #[test]
     fn possible_moves() {
         let game = Game::new();
         assert_eq!(game.get_possible_moves("e1".to_string()), Some(vec![]));
         // Test c2 white pawn
         assert_eq!(
-            game._get_possible_moves(Position { file: 3, rank: 2 })
+            game._get_possible_moves(&Position { file: 3, rank: 2 })
                 .unwrap(),
             HashSet::from_iter(
                 [Position { file: 3, rank: 4 }, Position { file: 3, rank: 3 }]
@@ -91,7 +129,7 @@ mod tests {
         );
         // Test f7 black pawn
         assert_eq!(
-            game._get_possible_moves(Position { file: 6, rank: 7 })
+            game._get_possible_moves(&Position { file: 6, rank: 7 })
                 .unwrap(),
             HashSet::from_iter(
                 [Position { file: 6, rank: 6 }, Position { file: 6, rank: 5 }]
@@ -99,20 +137,61 @@ mod tests {
                     .cloned()
             )
         );
-        // println!("\n{:?}", game.get_possible_moves("c7".to_string()));
-
         // Test empty square
         assert!(game.get_possible_moves("c5".to_string()).is_none());
+        // Test blocked king
+        assert_eq!(game.get_possible_moves("e1".to_string()).unwrap().len(), 0);
     }
 
-    /// Check that moves can be made
+    /// Test if piece in the way
+    #[test]
+    fn piece_in_way() {
+        let game = Game::new();
+        let res = game._is_piece_in_way(
+            &Piece::Bishop(Color::White),
+            &Position { file: 6, rank: 1 },
+            &Position { file: 8, rank: 3 },
+        );
+        assert!(res);
+    }
+
+    /// Tests that moves can be made (for each player)
     #[test]
     fn make_move() {
-        let game = Game::new();
+        let mut game = Game::new();
 
-        println!("{:?}", game);
-        // game.make_move("a2".to_string(), "a4".to_string());
+        assert!(game.make_move("a2".to_string(), "a4".to_string()).is_ok());
+        assert!(game.make_move("g8".to_string(), "h6".to_string()).is_ok());
+        assert!(game.make_move("b1".to_string(), "c3".to_string()).is_ok());
+    }
 
-        assert_eq!(game.state, GameState::InProgress);
+    // Test checkmate with [fool's mate](https://www.chess.com/terms/fools-mate)
+    #[test]
+    fn fools_mate() {
+        let mut game = Game::new();
+        let moves = [("f2", "f3"), ("e7", "e5"), ("g2", "g4"), ("d8", "h4")];
+        for (from, to) in moves {
+            game.make_move(from.to_string(), to.to_string()).unwrap();
+        }
+        assert_eq!(game.get_game_state(), GameState::CheckMate);
+    }
+
+    // Test checkmate with [scholars's mate](https://www.chess.com/terms/fools-mate)
+    #[test]
+    fn scholars_mate() {
+        let mut game = Game::new();
+        let moves = [
+            ("e2", "e4"),
+            ("e7", "e5"),
+            ("d1", "h5"),
+            ("b8", "c6"),
+            ("f1", "c4"),
+            ("g8", "f6"),
+            ("h5", "f7"),
+        ];
+        for (from, to) in moves {
+            game.make_move(from.to_string(), to.to_string()).unwrap();
+        }
+        assert_eq!(game.get_game_state(), GameState::CheckMate);
     }
 }
