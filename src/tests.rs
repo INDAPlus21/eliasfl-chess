@@ -22,7 +22,7 @@ mod tests {
         let game = Game::new();
 
         let starting_board: HashMap<Position, Piece> = [
-            // White
+            // caWhite
             (Position { file: 1, rank: 1 }, Rook(White)),
             (Position { file: 2, rank: 1 }, Knight(White)),
             (Position { file: 3, rank: 1 }, Bishop(White)),
