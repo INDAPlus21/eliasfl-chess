@@ -3,6 +3,12 @@
 A dependency-free chess engine/library and cli test made by Elias Floreteng during the KTH DD1337 Programming course.  
 Playable through the command-line.
 
+# Download the program
+- [Windows](https://elias.floreteng.se/chess/bin/eliasfl-chess.exe)
+- [Linux](https://elias.floreteng.se/chess/bin/eliasfl-chess)
+
+_Run in command-line with argument "fancy" to use unicode piece symbols_
+
 # [Documentation](https://elias.floreteng/chess)
 
 View the documentation at [elias.floreteng.se/chess](https://elias.floreteng/chess).
