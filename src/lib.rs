@@ -6,7 +6,9 @@
 //!     [Windows](https://elias.floreteng.se/chess/bin/eliasfl-chess.exe)  
 //!     [Linux](https://elias.floreteng.se/chess/bin/eliasfl-chess)
 //!
-//! You can alternatively install it on your system with `cargo install eliasfl-chess`
+//! Pass "fancy" as an argument when running to use unicode symbols for the pieces.
+//!
+// You can alternatively install it on your system with `cargo install eliasfl-chess`
 //!
 //! # How to use/test the library
 //! 1. Clone [the repository](https://github.com/INDAPlus21/eliasfl-chess)
