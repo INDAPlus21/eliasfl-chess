@@ -22,16 +22,16 @@ const ASCII_SYMBOLS: [(&str, &str); 12] = [
 fn rerender(game: &Game) {
     let mut gameboard = format!("{:?}", game);
     match env::args().nth(1) {
-        Some(arg) if arg.contains("ascii") => {
-            for (from, to) in ASCII_SYMBOLS {
-                gameboard = gameboard.replace(from, to);
-            }
-            print!("{}", gameboard);
-        }
-        _ => {
+        Some(arg) if arg.contains("fancy") => {
             // Clear terminal screen
             println!("\x1B[2J\x1B[1;1H");
             // Print gameboard
+            print!("{}", gameboard);
+        }
+        _ => {
+            for (from, to) in ASCII_SYMBOLS {
+                gameboard = gameboard.replace(from, to);
+            }
             print!("{}", gameboard);
         }
     }
