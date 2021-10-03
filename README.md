@@ -9,7 +9,7 @@ Playable through the command-line.
 
 _Run in command-line with argument "fancy" to use unicode piece symbols_
 
-# [Documentation](https://elias.floreteng/chess)
+# [Documentation](https://elias.floreteng.se/chess)
 
 View the documentation at [elias.floreteng.se/chess](https://elias.floreteng.se/chess).
 This includes examples and run instructions.
