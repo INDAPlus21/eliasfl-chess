@@ -226,15 +226,9 @@ impl Position {
             return Err("Position should consist of file and rank (at least 2 characters)".into());
         }
         let (_file, _rank) = _from.split_at(1);
-        let file = match &_file.to_lowercase()[..] {
-            "a" => 1,
-            "b" => 2,
-            "c" => 3,
-            "d" => 4,
-            "e" => 5,
-            "f" => 6,
-            "g" => 7,
-            "h" => 8,
+        let file = match _file.to_lowercase().chars().next() {
+            // 97 is char code for 'a', 96 is used because file is one-indexed
+            Some(c @ 'a'..='h') => c as u8 - 96,
             _ => return Err("Invalid file, should be in range [a, h]".into()),
         };
         let rank = match _rank.parse()? {
@@ -247,17 +241,8 @@ impl Position {
     /// Get string with first character as file (a-h) and second char as rank (1-8).
     pub fn to_string(&self) -> String {
         let mut output = String::with_capacity(2);
-        output.push(match self.file {
-            1 => 'a',
-            2 => 'b',
-            3 => 'c',
-            4 => 'd',
-            5 => 'e',
-            6 => 'f',
-            7 => 'g',
-            8 => 'h',
-            _ => ' ',
-        });
+        // 97 is char code for 'a', 96 is used because file is one-indexed
+        output.push((self.file + 96) as char);
         output.push(char::from_digit(self.rank as u32, 10).unwrap_or(' '));
         output
     }
