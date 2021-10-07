@@ -275,8 +275,8 @@ pub struct Game {
     pub active_color: Color,
     /// Promotion piece per color
     pub promotion: [Piece; 2],
-    /// Current game state.
-    state: GameState,
+    /// Current game state. Call `get_game_state` to check for checkmate
+    pub state: GameState,
 }
 
 impl Game {
@@ -470,8 +470,8 @@ impl Game {
     /// If the current game state is not CheckMate and the move is legal,
     /// move a piece.
     ///
-    /// Return Err if move is illegal or if piece has no possible moves, otherwise Ok.
-    pub fn make_move(&mut self, _from: String, _to: String) -> Result<(), &str> {
+    /// Return Err if move is illegal or if piece has no possible moves, otherwise Ok with removed piece or None if no piece is removed
+    pub fn make_move(&mut self, _from: String, _to: String) -> Result<Option<Piece>, &str> {
         if let (Ok(from), Ok(to)) = (
             Position::from_string(_from.clone()),
             Position::from_string(_to.clone()),
@@ -508,7 +508,7 @@ impl Game {
                             };
                         // Actual piece move
                         let before_move = self.board.clone();
-                        self.board.insert(to, new_piece); // returns removed piece
+                        let removed = self.board.insert(to, new_piece); // returns removed piece (or None)
                         self.board.remove(&from);
                         if self._king_is_threatened(self.active_color) {
                             // Own king is threatened -> invalid move
@@ -526,7 +526,7 @@ impl Game {
                         // Change to opposite players turn
                         self.active_color = !self.active_color;
 
-                        Ok(())
+                        Ok(removed)
                     } else {
                         Err("Destination move is invalid")
                     }
@@ -609,9 +609,9 @@ impl Game {
     /// Gets the current game state
     ///
     /// Detects and returns checkmate (private field game.state does not)
-    pub fn get_game_state(&self) -> GameState {
+    pub fn get_game_state(&mut self) -> GameState {
         if self._is_checkmate(self.active_color) {
-            return GameState::CheckMate;
+            self.state = GameState::CheckMate;
         }
         return self.state;
     }

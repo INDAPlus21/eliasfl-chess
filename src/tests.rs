@@ -9,7 +9,7 @@ mod tests {
     /// Test that game state is in progress after initialisation
     #[test]
     fn game_in_progress_after_init() {
-        let game = Game::new();
+        let mut game = Game::new();
 
         assert_eq!(game.get_game_state(), GameState::InProgress);
     }
