@@ -9,6 +9,8 @@ Playable through the command-line.
 
 The current program has webassembly bindings and a compiled version can be found on [elias.floreteng.se/chess/play](https://elias.floreteng.se/chess/play/)
 
+Compile to webassembly by running the `build_webassembly.ps1` script and output is in the `pkg` directory.
+
 ## Download the program
 
 - [Windows](https://elias.floreteng.se/chess/bin/eliasfl-chess.exe)
