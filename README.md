@@ -5,6 +5,10 @@ Playable through the command-line.
 
 > Note: rust-toolchain version at least 1.53.0 is required to run the project with cargo. Update with `rustup update`
 
+## Play chess in the browser
+
+The current program has webassembly bindings and a compiled version can be found on [elias.floreteng.se/chess/play](https://elias.floreteng.se/chess/play/)
+
 ## Download the program
 
 - [Windows](https://elias.floreteng.se/chess/bin/eliasfl-chess.exe)
