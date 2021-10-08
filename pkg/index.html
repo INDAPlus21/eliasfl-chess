@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script
+      defer
+      src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+    <link
+      href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <title>Elias chess example</title>
+  </head>
+
+  <body
+    x-data="{ game: {}, first: [], second: [] }"
+    @init-game.window="game = $event.detail"
+    class="container mx-auto shadow-2xl rounded-2xl p-8 space-y-8"
+  >
+    <div class="mx-auto max-w-max grid grid-cols-2 gap-4">
+      <div class="">
+        <div class="font-bold">Player:</div>
+        <div class="leading-tight" x-text="game?.active_color"></div>
+      </div>
+      <div class="">
+        <div class="font-bold">State:</div>
+        <div class="leading-tight" x-text="game?.state"></div>
+      </div>
+    </div>
+
+    <div class="flex flex-col mx-auto max-w-min ring-4 ring-black">
+      <template x-for="i in 8">
+        <div class="flex">
+          <template x-for="j in 8">
+            <div
+              @click="$dispatch('moves-for', [j, i]); if (first.length  && !second.length) {second = [j, 9 - i]; $dispatch('move-piece', [first, second]); first = []; second = []} else {first = [j, 9 - i]}"
+              class="w-12 h-12 grid place-items-center cursor-pointer"
+              :class="`${(i + j) % 2 ? 'bg-yellow-800' : 'bg-yellow-100'} ${first[0] == j && first[1] == (9 - i) ? 'border-8 border-black' : ''}`"
+              x-text="symbol(Object.entries(game?.board?.find?.((e) => e[0].file == j && e[0].rank == (9 - i))?.[1] ?? {})?.[0])"
+            ></div>
+            <!-- x-text="`${i},${j}`" -->
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <div class="mx-auto max-w-max">
+      <div class="font-bold">Moves for selected piece:</div>
+      <div
+        class="leading-tight"
+        x-data="{ moves: [] }"
+        @new-moves.window="moves = $event.detail"
+        x-text="first.length ? moves.join(', ') : ''"
+      ></div>
+    </div>
+
+    <script>
+      const symbol = (e) => {
+        if (e) {
+          return (
+            {
+              "King Black": "♚",
+              "King White": "♔",
+              "Queen Black": "♛",
+              "Queen White": "♕",
+              "Rook Black": "♜",
+              "Rook White": "♖",
+              "Bishop Black": "♝",
+              "Bishop White": "♗",
+              "Knight Black": "♞",
+              "Knight White": "♘",
+              "Pawn Black": "♟",
+              "Pawn White": "♙",
+            }?.[e.join(" ")] ?? e
+          )
+        } else {
+          return undefined
+        }
+      }
+    </script>
+
+    <script type="module">
+      import init, {
+        new_game,
+        get_possible_moves,
+        make_move,
+      } from "./eliasfl_chess.js"
+
+      init().then(() => {
+        const files = {
+          1: "a",
+          2: "b",
+          3: "c",
+          4: "d",
+          5: "e",
+          6: "f",
+          7: "g",
+          8: "h",
+        }
+        const to_pos = ([x, y]) => (files?.[x] ?? " ") + y.toString()
+        const push_event = (evt, data) => {
+          let event = new CustomEvent(evt, {
+            detail: data,
+          })
+          window.dispatchEvent(event)
+        }
+
+        let game_json = new_game()
+        let game = JSON.parse(game_json)
+        push_event("init-game", game)
+
+        window.addEventListener("moves-for", ({ detail: pos }) => {
+          let moves = JSON.parse(get_possible_moves(game_json, to_pos(pos)))
+          console.log(moves)
+          push_event("new-moves", moves)
+        })
+
+        window.addEventListener("move-piece", ({ detail: [from, to] }) => {
+          // console.log(from, to)
+          console.log(to_pos(from), to_pos(to))
+          game_json = make_move(JSON.stringify(game), to_pos(from), to_pos(to))
+          game = JSON.parse(game_json)
+          push_event("init-game", game)
+        })
+      })
+    </script>
+  </body>
+</html>

@@ -1,5 +1,4 @@
 //! Interactive chess game through terminal
-
 use eliasfl_chess::*;
 use std::env;
 use std::io::{self, BufRead};

@@ -16,3 +16,7 @@ Cargo.lock
 
 /target
 #Cargo.lock
+
+# Webassembly output
+/pkg/*
+!pkg/index.html

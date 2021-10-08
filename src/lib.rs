@@ -53,14 +53,45 @@ use std::fmt;
 use std::ops::Not;
 mod tests;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn new_game() -> String {
+    let game = Game::new();
+    serde_json::to_string(&game).unwrap()
+}
+
+#[wasm_bindgen]
+pub fn get_possible_moves(json: &str, pos: &str) -> String {
+    let game: Game = serde_json::from_str(json).unwrap();
+    if let Some(moves) = game.get_possible_moves(pos.to_string()) {
+        serde_json::to_string(&moves).unwrap()
+    } else {
+        let empty: Vec<String> = Vec::new();
+        serde_json::to_string(&empty).unwrap()
+    }
+}
+
+#[wasm_bindgen]
+pub fn make_move(json: &str, pos: &str, dest: &str) -> String {
+    let mut game: Game = serde_json::from_str(json).unwrap();
+    if let Ok(_) = game.make_move(pos.to_string(), dest.to_string()) {
+        serde_json::to_string(&game).unwrap()
+    } else {
+        serde_json::to_string(&game).unwrap()
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum GameState {
     InProgress,
     Check,
     CheckMate,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Color {
     White,
     Black,
@@ -83,7 +114,7 @@ impl Not for Color {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Piece {
     King(Color),
     Queen(Color),
@@ -92,7 +123,6 @@ pub enum Piece {
     Knight(Color),
     Pawn(Color),
 }
-
 impl Piece {
     fn color(&self) -> Color {
         use Color::*;
@@ -212,7 +242,7 @@ impl Piece {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Position {
     /// The column: 1-8 -> a-h (king on file "e")
     pub file: u8,
@@ -267,9 +297,11 @@ impl Position {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[serde_as]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Game {
     /// Board HashMap with Position keys and Piece values
+    #[serde_as(as = "Vec<(_, _)>")]
     pub board: HashMap<Position, Piece>,
     /// The color who's turn it is
     pub active_color: Color,
@@ -278,7 +310,6 @@ pub struct Game {
     /// Current game state. Call `get_game_state` to check for checkmate
     pub state: GameState,
 }
-
 impl Game {
     /// Initialises a new board with standard piece positions.
     pub fn new() -> Self {

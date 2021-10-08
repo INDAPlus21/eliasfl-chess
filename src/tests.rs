@@ -14,6 +14,14 @@ mod tests {
         assert_eq!(game.get_game_state(), GameState::InProgress);
     }
 
+    /// JSON Serialization
+    #[test]
+    fn board_to_json() {
+        let game = Game::new();
+        let json = serde_json::to_string(&game).unwrap();
+        assert_eq!(game, serde_json::from_str(&json).unwrap());
+    }
+
     /// Test starting board
     #[test]
     fn valid_starting_board() {
