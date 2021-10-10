@@ -6,7 +6,7 @@ mod tests {
 
     use crate::*;
 
-    /// Test that game state is in progress after initialisation
+    /// Test that game state is in progress after initialization
     #[test]
     fn game_in_progress_after_init() {
         let mut game = Game::new();

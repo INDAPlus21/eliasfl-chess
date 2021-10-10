@@ -311,7 +311,7 @@ pub struct Game {
     pub state: GameState,
 }
 impl Game {
-    /// Initialises a new board with standard piece positions.
+    /// Initializes a new board with standard piece positions.
     pub fn new() -> Self {
         use Color::*;
         use Piece::*;
@@ -388,7 +388,7 @@ impl Game {
             }
             Piece::Rook(_) | Piece::Pawn(_) => {
                 if position.file == destination.file {
-                    // If in same file: iterate over locations inbetween
+                    // If in same file: iterate over locations in between
                     // + 1 to ignore current piece and noninclusive range
                     for between in min(position.rank, destination.rank) + 1
                         ..max(position.rank, destination.rank)
@@ -404,7 +404,7 @@ impl Game {
                     }
                 }
                 if position.rank == destination.rank {
-                    // If in same rank: iterate over locations inbetween
+                    // If in same rank: iterate over locations in between
                     // + 1 to ignore current piece and noninclusive range
                     for between in min(position.file, destination.file) + 1
                         ..max(position.file, destination.file)
@@ -544,7 +544,7 @@ impl Game {
                         if self._king_is_threatened(self.active_color) {
                             // Own king is threatened -> invalid move
                             self.board = before_move;
-                            return Err("Move threatenes own king");
+                            return Err("Move threatens own king");
                         }
                         // If piece is able to move and doesn't threaten own king -> remove check state
                         self.state = GameState::InProgress;
@@ -572,7 +572,7 @@ impl Game {
         }
     }
 
-    /// Returns true if king with `color` is threateneed by piece in `position`
+    /// Returns true if king with `color` is threatened by piece in `position`
     fn _threatens_king(&self, position: &Position, color: Color) -> bool {
         if let Some(moves) = self._get_possible_moves(position) {
             for mov in moves {
