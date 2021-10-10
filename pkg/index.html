@@ -34,7 +34,7 @@
         <div class="flex">
           <template x-for="j in 8">
             <div
-              @click="$dispatch('moves-for', [j, i]); if (first.length  && !second.length) {second = [j, 9 - i]; $dispatch('move-piece', [first, second]); first = []; second = []} else {first = [j, 9 - i]}"
+              @click="$dispatch('moves-for', [j, 9 - i]); if (first.length  && !second.length) {second = [j, 9 - i]; $dispatch('move-piece', [first, second]); first = []; second = []} else {first = [j, 9 - i]}"
               class="w-12 h-12 grid place-items-center cursor-pointer"
               :class="`${(i + j) % 2 ? 'bg-yellow-800' : 'bg-yellow-100'} ${first[0] == j && first[1] == (9 - i) ? 'border-8 border-black' : ''}`"
               x-text="symbol(Object.entries(game?.board?.find?.((e) => e[0].file == j && e[0].rank == (9 - i))?.[1] ?? {})?.[0])"
